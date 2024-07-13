@@ -18,17 +18,29 @@ read -p "Introduce el dominio asociado al certificado (ejemplo: 'tudominio.com')
 # Verifica que la carpeta de destino existe, si no, la crea
 mkdir -p "$ubicacionCertificado"
 
-# Configura la fecha de expiración
-end_date=$(date -d "+$duracionAnos years" +%Y%m%d%H%M%S)
+# Construir el comando de extensión de sujeto
+subject="/CN=$nombreCertificado/O=$organizacion/OU=$organizationalUnit/L=$locality/ST=$state/C=$country/emailAddress=$email"
+
+# Si el dominio no está vacío, agregar subjectAltName
+if [ -n "$domain" ]; then
+    extensions="-addext subjectAltName=DNS:$domain -addext keyUsage=digitalSignature,keyEncipherment"
+else
+    extensions="-addext keyUsage=digitalSignature,keyEncipherment"
+fi
 
 # Genera la clave privada y el certificado
 openssl req -x509 -newkey rsa:$longitudClave -sha256 -nodes \
     -keyout "$ubicacionCertificado/$nombreCertificado.key" \
     -out "$ubicacionCertificado/$nombreCertificado.crt" \
     -days $((duracionAnos * 365)) \
-    -subj "/CN=$nombreCertificado/O=$organizacion/OU=$organizationalUnit/L=$locality/ST=$state/C=$country/emailAddress=$email" \
-    -addext "subjectAltName=DNS:$domain" -addext "keyUsage=digitalSignature,keyEncipherment"
+    -subj "$subject" \
+    $extensions
+
+# Genera el archivo PEM para compatibilidad con iPhone
+cat "$ubicacionCertificado/$nombreCertificado.crt" "$ubicacionCertificado/$nombreCertificado.key" > "$ubicacionCertificado/$nombreCertificado.pem"
 
 echo "Certificado y clave privada guardados en $ubicacionCertificado"
 echo "Certificado: $ubicacionCertificado/$nombreCertificado.crt"
 echo "Clave Privada: $ubicacionCertificado/$nombreCertificado.key"
+echo "Archivo PEM: $ubicacionCertificado/$nombreCertificado.pem"
+
